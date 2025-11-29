@@ -15,7 +15,7 @@ It:
 
 ## Demo
 
-- **Deployed URL:** `https://cf-ai-backlog-buddy.backlog-buddy.workers.dev/`  
+- **Deployed URL:** `https://cf-ai-backlog-buddy.backlog-buddy.workers.dev`  
 
 ---
 
