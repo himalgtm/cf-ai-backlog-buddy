@@ -1,25 +1,96 @@
-# Cloudflare Workers OpenAPI 3.1
+# cf_ai_backlog-buddy
 
-This is a Cloudflare Worker with OpenAPI 3.1 using [chanfana](https://github.com/cloudflare/chanfana) and [Hono](https://github.com/honojs/hono).
+_Backlog Buddy_ is a small AI-powered agent built on Cloudflare that helps a developer
+triage and act on their issue backlog.
 
-This is an example project made to be used as a quick start into building OpenAPI compliant Workers that generates the
-`openapi.json` schema automatically from code and validates the incoming request to the defined parameters or request body.
+It:
 
-## Get started
+- Reads a backlog of issues (seeded in the agent state for this demo)
+- Accepts natural-language instructions over chat
+- Uses an LLM (Llama 3.3 on Workers AI) to reason about what to do next
+- Responds with concrete next steps, including suggested git branches and commands
+- Remembers recent conversation context per session
 
-1. Sign up for [Cloudflare Workers](https://workers.dev). The free tier is more than enough for most use cases.
-2. Clone this project and install dependencies with `npm install`
-3. Run `wrangler login` to login to your Cloudflare account in wrangler
-4. Run `wrangler deploy` to publish the API to Cloudflare Workers
+This repository was built as part of a Cloudflare internship application.  
+AI assistance (ChatGPT) was used as a coding companion; the key prompts are
+documented in [`PROMPTS.md`](./PROMPTS.md).
 
-## Project structure
+---
 
-1. Your main router is defined in `src/index.ts`.
-2. Each endpoint has its own file in `src/endpoints/`.
-3. For more information read the [chanfana documentation](https://chanfana.pages.dev/) and [Hono documentation](https://hono.dev/docs).
+## Demo
 
-## Development
+- **Deployed URL:** `https://cf-ai-backlog-buddy.backlog-buddy.workers.dev/`  
 
-1. Run `wrangler dev` to start a local instance of the API.
-2. Open `http://localhost:8787/` in your browser to see the Swagger interface where you can try the endpoints.
-3. Changes made in the `src/` folder will automatically trigger the server to reload, you only need to refresh the Swagger interface.
+---
+
+## What Backlog Buddy does
+
+Think of a typical dev backlog: issues like “implement first assigned task” or
+“clean up irrelevant tickets”. Backlog Buddy acts as a tiny project manager +
+coding buddy:
+
+- You talk to it via a chat UI.
+- It looks at the current backlog and your recent messages.
+- It calls an LLM hosted on **Workers AI** (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`).
+- It replies with a structured plan: what issue to work on, what branch to
+  create, which git commands to run, and what to do next.
+- It keeps **per-session memory** so conversations stay contextual.
+
+Example prompts:
+
+- “Implement and open a pull request for the first issue I have assigned to me.”
+- “Clean up our backlog, cancelling any issues that are no longer relevant.”
+- “Here’s an error message, where do you think it belongs?”
+
+---
+
+## Architecture
+
+**High level:**
+
+- **Cloudflare Worker (`src/index.ts`)**
+  - Serves a minimal, but styled, single-page chat UI at `/`.
+  - Routes `/agents/*` requests into the Agent infrastructure using
+    `routeAgentRequest`.
+  - Re-exports the `BacklogAgent` class so Wrangler can bind it as a Durable Object.
+
+- **Agent / Durable Object (`src/backlogAgent.ts`)**
+  - Class: `BacklogAgent` (extends `Agent` from the `agents` SDK).
+  - Stores state in its own SQLite-backed storage:
+    - `issues: Issue[]` – seeded backlog
+    - `notes: string[]` – recent conversation log
+    - `lastUpdated: string | null`
+  - Exposes an HTTP interface:
+    - `POST /agents/backlog-agent/:session/chat` – main chat endpoint
+    - `GET  /agents/backlog-agent/:session/state` – debug state endpoint
+  - For each chat message:
+    1. Appends the message to `notes`.
+    2. Builds a system + user prompt with the backlog and recent notes.
+    3. Calls `env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", ...)`.
+    4. Returns the LLM reply and updated state.
+
+- **Workers AI**
+  - Bound as `env.AI` via `wrangler.jsonc`:
+    ```jsonc
+    "ai": { "binding": "AI" }
+    ```
+  - Model: `@cf/meta/llama-3.3-70b-instruct-fp8-fast`.
+
+- **State & coordination**
+  - Each distinct `:session` in the URL maps to its own `BacklogAgent`
+    Durable Object instance.
+  - The agent can be extended to schedule periodic clean-up or resync tasks
+    (example `cleanupStaleNotes()` method is included as a starting point).
+
+---
+
+## Tech stack
+
+- **Platform:** Cloudflare Workers
+- **Agents & state:** Cloudflare Agents SDK + Durable Objects
+- **LLM:** Workers AI – Meta Llama 3.3 70B Instruct
+- **Language:** TypeScript
+- **Build tooling:** `wrangler` (no extra bundler or framework)
+- **UI:** Vanilla HTML + CSS + small inline JavaScript
+
+---
