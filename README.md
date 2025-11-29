@@ -1,4 +1,4 @@
-# backlog-buddy
+# Backlog Buddy (Cloudflare Worker)
 
 _Backlog Buddy_ is a small AI-powered agent built on Cloudflare that helps a developer
 triage and act on their issue backlog.
