@@ -1,4 +1,4 @@
-# cf_ai_backlog-buddy
+# backlog-buddy
 
 _Backlog Buddy_ is a small AI-powered agent built on Cloudflare that helps a developer
 triage and act on their issue backlog.
@@ -10,10 +10,6 @@ It:
 - Uses an LLM (Llama 3.3 on Workers AI) to reason about what to do next
 - Responds with concrete next steps, including suggested git branches and commands
 - Remembers recent conversation context per session
-
-This repository was built as part of a Cloudflare internship application.  
-AI assistance (ChatGPT) was used as a coding companion; the key prompts are
-documented in [`PROMPTS.md`](./PROMPTS.md).
 
 ---
 
